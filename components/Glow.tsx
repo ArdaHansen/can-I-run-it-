@@ -1,9 +1,9 @@
-export function Glow() {
+export default function Glow() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden route-line">
-      <div className="absolute left-[-12rem] top-[-10rem] h-[30rem] w-[30rem] rounded-full bg-cyan-500/25 blur-[120px]" />
-      <div className="absolute right-[-10rem] top-[14rem] h-[26rem] w-[26rem] rounded-full bg-orange-500/18 blur-[110px]" />
-      <div className="absolute bottom-[-15rem] left-[30%] h-[34rem] w-[34rem] rounded-full bg-blue-700/20 blur-[130px]" />
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute -top-40 left-1/2 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-cyan-400/20 blur-3xl" />
+      <div className="absolute top-40 right-[-120px] h-[360px] w-[360px] rounded-full bg-orange-400/20 blur-3xl" />
+      <div className="absolute bottom-[-160px] left-[-120px] h-[420px] w-[420px] rounded-full bg-blue-500/15 blur-3xl" />
     </div>
-  );
+  )
 }

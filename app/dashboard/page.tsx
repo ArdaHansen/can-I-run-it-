@@ -1,230 +1,148 @@
-'use client';
+'use client'
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Activity, Flame, LogOut, Target, UploadCloud } from 'lucide-react';
-import { Glow } from '@/components/Glow';
-import { supabase } from '@/lib/supabase';
-import { analyzeRun } from '@/lib/analysis';
-import { isSafeImage } from '@/lib/validators';
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Glow from '../../components/Glow'
+import { supabase, hasSupabaseConfig } from '../../lib/supabase'
+import { analyzeRun } from '../../lib/analysis'
+import { Flame, LogOut, Upload } from 'lucide-react'
 
-type RunRow = {
-  id: string;
-  distance: number | null;
-  pace: string | null;
-  duration: string | null;
-  avg_hr: number | null;
-  readiness_score: number | null;
-  analysis: string | null;
-  uploaded_at: string;
-  screenshot_url: string | null;
-};
-
-type Profile = {
-  id: string;
-  username: string | null;
-  age: number | null;
-  weight: number | null;
-  weekly_km: number | null;
-  target_race: string | null;
-  target_time: string | null;
-  streak: number | null;
-  best_streak: number | null;
-  last_run_date: string | null;
-};
+type Run = {
+  id: string
+  distance_km: number
+  pace: string
+  avg_hr: number | null
+  goal: string
+  readiness_score: number
+  verdict: string
+  recommendation: string
+  created_at: string
+}
 
 export default function Dashboard() {
-  const router = useRouter();
-  const [userId, setUserId] = useState<string>('');
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [runs, setRuns] = useState<RunRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [form, setForm] = useState({ distance: '10', duration: '00:50:00', pace: '5:00', avgHr: '155', weeklyKm: '40', goalDistance: 'MARATHON', goalTime: '03:30:00' });
+  const router = useRouter()
+  const [userId, setUserId] = useState<string | null>(null)
+  const [runs, setRuns] = useState<Run[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [form, setForm] = useState({ distanceKm: '10', pace: '5:00', avgHr: '', weeklyKm: '45', longRunKm: '22', goal: 'Sub 3 Marathon' })
 
   useEffect(() => {
     async function init() {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push('/auth');
-        return;
-      }
-      setUserId(data.user.id);
-      await load(data.user.id);
-      setLoading(false);
+      if (!hasSupabaseConfig) { setMessage('Supabase ENV Variablen fehlen.'); setLoading(false); return }
+      const { data } = await supabase.auth.getUser()
+      if (!data.user) { router.push('/auth'); return }
+      setUserId(data.user.id)
+      await supabase.from('profiles').upsert({ id: data.user.id, email: data.user.email }, { onConflict: 'id' })
+      const { data: runData } = await supabase.from('runs').select('*').eq('user_id', data.user.id).order('created_at', { ascending: false }).limit(20)
+      setRuns((runData || []) as Run[])
+      setLoading(false)
     }
-    init();
-  }, [router]);
+    init()
+  }, [router])
 
-  async function load(uid: string) {
-    const { data: prof } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-    if (!prof) {
-      await supabase.from('profiles').insert({ id: uid, username: 'runner' });
-      const { data: newProf } = await supabase.from('profiles').select('*').eq('id', uid).single();
-      setProfile(newProf as Profile);
-    } else setProfile(prof as Profile);
+  const latest = runs[0]
+  const streak = useMemo(() => {
+    const dates = [...new Set(runs.map(r => new Date(r.created_at).toISOString().slice(0,10)))]
+    return dates.length
+  }, [runs])
 
-    const { data: runData } = await supabase.from('runs').select('*').eq('user_id', uid).order('uploaded_at', { ascending: false }).limit(20);
-    setRuns((runData || []) as RunRow[]);
+  async function logout() {
+    await supabase.auth.signOut()
+    router.push('/')
   }
-
-  const latest = runs[0];
-  const avgScore = useMemo(() => {
-    const scores = runs.map(r => r.readiness_score).filter((s): s is number => typeof s === 'number');
-    return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-  }, [runs]);
 
   async function saveRun(e: React.FormEvent) {
-    e.preventDefault();
-    if (!userId) return;
-    setSaving(true);
-    setMessage('');
-    try {
-      let screenshotPath: string | null = null;
-      if (file) {
-        if (!isSafeImage(file)) throw new Error('Nur PNG, JPG oder WEBP bis 5 MB erlaubt.');
-        const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
-        const path = `${userId}/${crypto.randomUUID()}.${ext}`;
-        const { error } = await supabase.storage.from('run-screenshots').upload(path, file, { cacheControl: '3600', upsert: false });
-        if (error) throw error;
-        screenshotPath = path;
-      }
-
-      const result = analyzeRun({
-        distance: Number(form.distance),
-        duration: form.duration,
-        pace: form.pace,
-        avgHr: form.avgHr ? Number(form.avgHr) : null,
-        weeklyKm: form.weeklyKm ? Number(form.weeklyKm) : null,
-        goalDistance: form.goalDistance as '5K' | '10K' | 'HALF' | 'MARATHON',
-        goalTime: form.goalTime
-      });
-
-      const { error: insertError } = await supabase.from('runs').insert({
-        user_id: userId,
-        screenshot_url: screenshotPath,
-        distance: Number(form.distance),
-        pace: form.pace,
-        duration: form.duration,
-        avg_hr: form.avgHr ? Number(form.avgHr) : null,
-        readiness_score: result.score,
-        analysis: `${result.verdict}. ${result.weaknesses.join(' · ')}. ${result.nextWorkout}`
-      });
-      if (insertError) throw insertError;
-
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const current = profile?.streak || 0;
-      const best = profile?.best_streak || 0;
-      const last = profile?.last_run_date;
-      const newStreak = last === today ? current : last === yesterday ? current + 1 : 1;
-      await supabase.from('profiles').update({
-        weekly_km: Number(form.weeklyKm),
-        target_race: form.goalDistance,
-        target_time: form.goalTime,
-        streak: newStreak,
-        best_streak: Math.max(best, newStreak),
-        last_run_date: today
-      }).eq('id', userId);
-
-      setFile(null);
-      setMessage('Lauf gespeichert. Streak aktualisiert.');
-      await load(userId);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Upload fehlgeschlagen.');
-    } finally {
-      setSaving(false);
+    e.preventDefault()
+    if (!userId) return
+    setSaving(true)
+    setMessage('')
+    const input = {
+      distanceKm: Number(form.distanceKm),
+      pace: form.pace,
+      avgHr: form.avgHr ? Number(form.avgHr) : undefined,
+      weeklyKm: form.weeklyKm ? Number(form.weeklyKm) : undefined,
+      longRunKm: form.longRunKm ? Number(form.longRunKm) : undefined,
+      goal: form.goal
     }
+    const result = analyzeRun(input)
+    const { data, error } = await supabase.from('runs').insert({
+      user_id: userId,
+      distance_km: input.distanceKm,
+      pace: input.pace,
+      avg_hr: input.avgHr || null,
+      weekly_km: input.weeklyKm || null,
+      long_run_km: input.longRunKm || null,
+      goal: input.goal,
+      readiness_score: result.score,
+      verdict: result.verdict,
+      recommendation: result.next
+    }).select('*').single()
+    setSaving(false)
+    if (error) return setMessage(error.message)
+    setRuns([data as Run, ...runs])
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push('/');
-  }
-
-  if (loading) return <main className="grid min-h-screen place-items-center bg-[#05070a] text-white"><Glow /><p>Lädt Dashboard...</p></main>;
+  if (loading) return <main className="grid min-h-screen place-items-center"><Glow /><p className="text-white/60">Loading dashboard...</p></main>
 
   return (
-    <main className="min-h-screen bg-[#05070a] px-5 py-6 text-white">
+    <main className="relative min-h-screen px-5 py-6 md:px-10">
       <Glow />
-      <div className="mx-auto max-w-7xl">
-        <header className="glass flex items-center justify-between rounded-3xl px-5 py-4">
-          <div><p className="text-sm text-slate-400">Willkommen zurück</p><h1 className="text-2xl font-black">{profile?.username || 'Runner'}</h1></div>
-          <button onClick={signOut} className="rounded-2xl border border-white/10 px-4 py-2 text-sm text-slate-200"><LogOut size={16} className="inline mr-2" />Logout</button>
-        </header>
+      <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 backdrop-blur-xl">
+        <span className="font-black tracking-tight">Can I Run It?</span>
+        <button onClick={logout} className="btn btn-ghost gap-2 text-sm"><LogOut size={16}/> Logout</button>
+      </nav>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-4">
-          <Stat title="Current Streak" value={`${profile?.streak || 0}`} icon={<Flame />} accent="text-orange-300" />
-          <Stat title="Best Streak" value={`${profile?.best_streak || 0}`} icon={<Flame />} accent="text-orange-300" />
-          <Stat title="Avg Score" value={avgScore ? `${avgScore}%` : '–'} icon={<Target />} accent="text-cyan-300" />
-          <Stat title="Runs saved" value={`${runs.length}`} icon={<Activity />} accent="text-cyan-300" />
-        </section>
-
-        <section className="mt-6 grid gap-6 lg:grid-cols-[.95fr_1.05fr]">
-          <form onSubmit={saveRun} className="glass rounded-[2rem] p-6">
-            <h2 className="text-3xl font-black">Run hochladen</h2>
-            <p className="mt-2 text-sm text-slate-400">Screenshot ist optional. Die Analyse läuft in V1 über deine Zahlen plus sichere Supabase-Speicherung.</p>
-
-            <label className="mt-6 flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-white/20 bg-black/30 p-7 text-center hover:bg-white/5">
-              <UploadCloud className="mb-3 text-cyan-300" />
-              <span className="font-semibold">Garmin/Strava Screenshot auswählen</span>
-              <span className="mt-1 text-xs text-slate-400">PNG, JPG, WEBP bis 5 MB</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
-              {file && <span className="mt-3 rounded-full bg-cyan-400/15 px-3 py-1 text-xs text-cyan-100">{file.name}</span>}
-            </label>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <Field label="Distanz km" value={form.distance} onChange={v => setForm({ ...form, distance: v })} />
-              <Field label="Pace min/km" value={form.pace} onChange={v => setForm({ ...form, pace: v })} />
-              <Field label="Dauer hh:mm:ss" value={form.duration} onChange={v => setForm({ ...form, duration: v })} />
-              <Field label="Ø HF" value={form.avgHr} onChange={v => setForm({ ...form, avgHr: v })} />
-              <Field label="Wochenkilometer" value={form.weeklyKm} onChange={v => setForm({ ...form, weeklyKm: v })} />
-              <Field label="Zielzeit hh:mm:ss" value={form.goalTime} onChange={v => setForm({ ...form, goalTime: v })} />
+      <section className="mx-auto grid max-w-6xl gap-5 py-10 md:grid-cols-[.95fr_1.05fr]">
+        <div className="glass card p-6 shadow-glow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-white/50">Current Streak</p>
+              <h1 className="mt-1 text-5xl font-black">{streak} 🔥</h1>
             </div>
-
-            <label className="mt-4 block text-sm text-slate-300">Ziel
-              <select value={form.goalDistance} onChange={e => setForm({ ...form, goalDistance: e.target.value })} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 outline-none">
-                <option value="5K">5K</option><option value="10K">10K</option><option value="HALF">Halbmarathon</option><option value="MARATHON">Marathon</option>
-              </select>
-            </label>
-
-            <button disabled={saving} className="mt-6 w-full rounded-3xl bg-white px-5 py-4 font-black text-black transition hover:scale-[1.01] disabled:opacity-60">{saving ? 'Speichert...' : 'Analyse speichern'}</button>
-            {message && <p className="mt-4 rounded-2xl bg-white/8 p-4 text-sm text-slate-200">{message}</p>}
-          </form>
-
-          <div className="space-y-6">
-            <div className="glass rounded-[2rem] p-6">
-              <h2 className="text-3xl font-black">Aktueller Goal Check</h2>
-              {latest ? (
-                <div className="mt-6 grid gap-6 md:grid-cols-[220px_1fr]">
-                  <div className="grid place-items-center"><div className="grid h-48 w-48 place-items-center rounded-full border-[13px] border-cyan-300 shadow-glow"><div className="text-center"><div className="text-5xl font-black">{latest.readiness_score}%</div><div className="text-sm text-slate-400">realistic</div></div></div></div>
-                  <div><p className="leading-7 text-slate-200">{latest.analysis}</p><div className="mt-5 grid grid-cols-3 gap-3 text-center text-sm"><Mini label="km" value={latest.distance || '-'} /><Mini label="Pace" value={latest.pace || '-'} /><Mini label="HF" value={latest.avg_hr || '-'} /></div></div>
-                </div>
-              ) : <p className="mt-4 text-slate-400">Noch kein Lauf gespeichert.</p>}
-            </div>
-
-            <div className="glass rounded-[2rem] p-6">
-              <h2 className="text-2xl font-black">Letzte Läufe</h2>
-              <div className="mt-4 space-y-3">
-                {runs.map(run => <div key={run.id} className="rounded-2xl bg-white/7 p-4 text-sm"><div className="flex justify-between"><span>{run.distance} km · {run.pace}/km</span><span className="font-bold text-cyan-200">{run.readiness_score}%</span></div><p className="mt-1 text-xs text-slate-400">{new Date(run.uploaded_at).toLocaleString('de-DE')}</p></div>)}
-                {!runs.length && <p className="text-sm text-slate-400">Noch leer.</p>}
+            <div className="rounded-full bg-orange-400/15 p-4 text-orange-200"><Flame /></div>
+          </div>
+          <div className="mt-8 rounded-3xl bg-black/30 p-5">
+            <p className="text-sm text-white/50">Latest Goal Check</p>
+            <h2 className="mt-2 text-2xl font-black">{latest?.goal || 'Noch kein Lauf gespeichert'}</h2>
+            <div className="my-6 grid place-items-center">
+              <div className="grid h-40 w-40 place-items-center rounded-full border-[12px] border-cyan-300/80 bg-cyan-300/10">
+                <div className="text-center"><div className="text-4xl font-black">{latest?.readiness_score ?? 0}%</div><div className="text-xs uppercase tracking-[.2em] text-white/50">ready</div></div>
               </div>
             </div>
+            <p className="font-bold text-cyan-100">{latest?.verdict || 'Speichere deinen ersten Run.'}</p>
+            <p className="mt-2 text-sm leading-6 text-white/60">{latest?.recommendation || 'Danach bekommst du direkt eine Einschätzung und den nächsten Trainingsschritt.'}</p>
           </div>
-        </section>
-      </div>
-    </main>
-  );
-}
+        </div>
 
-function Stat({ title, value, icon, accent }: { title: string; value: string; icon: React.ReactNode; accent: string }) {
-  return <div className="glass rounded-3xl p-5"><div className={accent}>{icon}</div><p className="mt-4 text-sm text-slate-400">{title}</p><p className="mt-1 text-3xl font-black">{value}</p></div>;
-}
-function Mini({ label, value }: { label: string; value: string | number }) {
-  return <div className="rounded-2xl bg-white/7 p-3"><p className="text-xs text-slate-400">{label}</p><p className="font-black">{value}</p></div>;
-}
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <label className="block text-sm text-slate-300">{label}<input value={value} onChange={e => onChange(e.target.value)} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 outline-none focus:border-cyan-300" /></label>;
+        <div className="glass card p-6">
+          <h2 className="text-3xl font-black">Add run</h2>
+          <p className="mt-2 text-white/60">V1 nutzt manuelle Werte. Screenshot-OCR kommt danach stabil oben drauf.</p>
+          <form onSubmit={saveRun} className="mt-6 grid gap-4 sm:grid-cols-2">
+            <input className="input" placeholder="Distance km" value={form.distanceKm} onChange={e=>setForm({...form,distanceKm:e.target.value})} />
+            <input className="input" placeholder="Pace 5:00" value={form.pace} onChange={e=>setForm({...form,pace:e.target.value})} />
+            <input className="input" placeholder="Avg HR optional" value={form.avgHr} onChange={e=>setForm({...form,avgHr:e.target.value})} />
+            <input className="input" placeholder="Weekly km" value={form.weeklyKm} onChange={e=>setForm({...form,weeklyKm:e.target.value})} />
+            <input className="input" placeholder="Longest run km" value={form.longRunKm} onChange={e=>setForm({...form,longRunKm:e.target.value})} />
+            <input className="input" placeholder="Goal" value={form.goal} onChange={e=>setForm({...form,goal:e.target.value})} />
+            <button className="btn btn-primary gap-2 sm:col-span-2" disabled={saving}><Upload size={18}/> {saving ? 'Saving...' : 'Save & analyze'}</button>
+          </form>
+          {message && <p className="mt-4 rounded-2xl bg-orange-400/10 p-3 text-sm text-orange-100">{message}</p>}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl pb-12">
+        <h2 className="mb-4 text-2xl font-black">Recent runs</h2>
+        <div className="grid gap-3">
+          {runs.map(run => (
+            <div key={run.id} className="glass flex flex-col justify-between gap-3 rounded-3xl p-4 md:flex-row md:items-center">
+              <div><p className="font-bold">{run.distance_km} km · {run.pace} · {run.goal}</p><p className="text-sm text-white/50">{new Date(run.created_at).toLocaleDateString()}</p></div>
+              <div className="text-right"><p className="text-2xl font-black text-cyan-100">{run.readiness_score}%</p><p className="text-sm text-white/55">{run.verdict}</p></div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  )
 }
