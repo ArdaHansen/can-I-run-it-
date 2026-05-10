@@ -1,105 +1,105 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Can I Run It?</title>
-  <link rel="stylesheet" href="/styles.css">
+  <meta name="description" content="Upload runs, check race readiness and unlock adaptive training suggestions." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header class="nav">
-    <div class="brand"><span class="dot"></span> Can I Run It?</div>
-    <button id="logoutBtn" class="ghost hidden">Logout</button>
-  </header>
+  <div class="noise"></div>
+  <nav class="nav">
+    <a class="brand" href="#home"><span>↯</span>Can I Run It?</a>
+    <div class="nav-actions">
+      <button class="ghost" data-view="auth">Login</button>
+      <button class="primary" data-view="dashboard">Dashboard</button>
+    </div>
+  </nav>
 
-  <main>
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Race Readiness AI</p>
-        <h1>Find heraus, ob dein Laufziel wirklich realistisch ist.</h1>
-        <p class="lead">Screenshot rein, Zielzeit wählen, ehrliche Analyse bekommen. Mit Streak, Schwächencheck und deinem nächsten Trainingsblock.</p>
-        <div class="heroActions">
-          <a href="#app" class="primary">Analyse starten</a>
-          <span class="trust">Secure MVP · Screenshot-first · No public uploads</span>
+  <main id="app">
+    <section id="home" class="view active hero">
+      <div class="hero-copy">
+        <p class="pill">Race-readiness AI for real runners</p>
+        <h1>Find out if your running goal is actually realistic.</h1>
+        <p class="lead">Upload Garmin, Strava or Apple Fitness screenshots, build your athlete profile and unlock training suggestions after 3 runs.</p>
+        <div class="row">
+          <button class="primary big" data-view="auth">Start free</button>
+          <button class="ghost big" data-view="dashboard">Open dashboard</button>
         </div>
       </div>
-      <div class="scoreCard">
-        <p>Sub 3 Marathon</p>
-        <strong>62%</strong>
-        <span>Machbar, aber noch nicht stabil abgesichert.</span>
+      <div class="hero-card glass">
+        <div class="between"><div><p class="muted">Goal check</p><h2>Sub 3 Marathon</h2></div><span class="pill fire">🔥 streak</span></div>
+        <div class="score-ring"><strong>68%</strong><span>readiness</span></div>
+        <div class="mini-list"><p><b>Aerobic base</b><span>Good</span></p><p><b>Long run depth</b><span>Needs work</span></p><p><b>Consistency</b><span>Strong</span></p></div>
       </div>
     </section>
 
-    <section id="app" class="grid">
-      <div class="panel" id="authPanel">
-        <h2>Account</h2>
-        <p class="muted">Deine Daten bleiben in deiner lokalen SQLite-Datenbank. Für echte Produktion später sauber mit Cloud-DB.</p>
-        <form id="authForm">
-          <label>Email <input name="email" type="email" required placeholder="du@example.com"></label>
-          <label>Passwort <input name="password" type="password" required minlength="8" placeholder="mind. 8 Zeichen"></label>
-          <div class="row">
-            <button class="primary" data-mode="login" type="submit">Login</button>
-            <button class="secondary" data-mode="register" type="submit">Registrieren</button>
-          </div>
+    <section id="auth" class="view narrow">
+      <div class="glass panel">
+        <button class="textlink" data-view="home">← Back</button>
+        <h2 id="authTitle">Create account</h2>
+        <p class="muted">Use email and password. Later you can customize Supabase email templates so verification looks professional.</p>
+        <form id="authForm" class="stack">
+          <input id="email" class="input" type="email" placeholder="Email" autocomplete="email" required>
+          <input id="password" class="input" type="password" placeholder="Password, min. 8 chars" autocomplete="current-password" required minlength="8">
+          <button class="primary" type="submit" id="authSubmit">Create account</button>
         </form>
-      </div>
-
-      <div class="panel hidden" id="analyzePanel">
-        <div class="panelHeader">
-          <h2>Goal Check</h2>
-          <div id="streakBadge" class="badge">🔥 0 Tage</div>
-        </div>
-        <div class="tabs">
-          <button class="tab active" data-tab="manual">Manuell</button>
-          <button class="tab" data-tab="screenshot">Screenshot</button>
-        </div>
-
-        <form id="manualForm" class="analyzeForm">
-          <div class="cols">
-            <label>Distanz km <input name="distanceKm" type="number" step="0.01" min="0.1" value="10" required></label>
-            <label>Dauer min <input name="durationMin" type="number" step="0.1" min="1" value="50" required></label>
-          </div>
-          <div class="cols">
-            <label>Pace <input name="pace" placeholder="5:00"></label>
-            <label>Ø HF <input name="avgHr" type="number" placeholder="155"></label>
-          </div>
-          <div class="cols">
-            <label>Datum <input name="date" type="date"></label>
-            <label>Höhenmeter <input name="elevationM" type="number" placeholder="80"></label>
-          </div>
-          <label>Notizen <textarea name="notes" placeholder="z.B. locker, harte Einheit, Wettkampf..."></textarea></label>
-          <div class="goalBox">
-            <label>Ziel <select name="goalDistance"><option value="marathon">Marathon</option><option value="half">Halbmarathon</option><option value="10k">10 km</option></select></label>
-            <label>Zielzeit Minuten <input name="goalTimeMin" type="number" value="180" min="15" required></label>
-          </div>
-          <button class="primary" type="submit">Can I run it?</button>
-        </form>
-
-        <form id="screenshotForm" class="analyzeForm hidden">
-          <label>Screenshot <input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" required></label>
-          <p class="muted small">Ohne OPENAI_API_KEY nutzt die App Demo-Werte. Mit API-Key liest sie den Screenshot serverseitig aus.</p>
-          <div class="goalBox">
-            <label>Ziel <select name="goalDistance"><option value="marathon">Marathon</option><option value="half">Halbmarathon</option><option value="10k">10 km</option></select></label>
-            <label>Zielzeit Minuten <input name="goalTimeMin" type="number" value="180" min="15" required></label>
-          </div>
-          <button class="primary" type="submit">Screenshot analysieren</button>
-        </form>
-      </div>
-
-      <div class="panel resultPanel" id="resultPanel">
-        <h2>Analyse</h2>
-        <div id="resultEmpty" class="empty">Noch keine Analyse. Lade einen Lauf hoch oder gib Daten ein.</div>
-        <div id="result" class="hidden"></div>
+        <button class="textlink" id="toggleAuth">Already have an account? Login</button>
+        <p class="message" id="authMsg"></p>
       </div>
     </section>
 
-    <section class="features">
-      <div><h3>Screenshot-first</h3><p>Kein API-Setup für Nutzer. Einfach Garmin/Strava Screenshot hochladen.</p></div>
-      <div><h3>Goal Probability</h3><p>Nicht nur Plan. Die App sagt ehrlich, wie realistisch dein Ziel ist.</p></div>
-      <div><h3>Streak Loop</h3><p>Jeder hochgeladene Lauf erhöht die Streak und bringt dich zurück.</p></div>
+    <section id="onboarding" class="view narrow-wide">
+      <div class="glass panel">
+        <h2>Build your runner profile</h2>
+        <p class="muted">This controls rest days, intensity and suggestions. Keep it honest so the app does not overtrain you.</p>
+        <form id="profileForm" class="grid-form">
+          <input id="username" class="input" placeholder="Username" maxlength="32">
+          <select id="level" class="input"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option><option value="competitive">Competitive</option></select>
+          <input id="weeklyKm" class="input" type="number" min="0" max="220" value="20" placeholder="Weekly km">
+          <select id="goalDistance" class="input"><option value="5k">5k</option><option value="10k">10k</option><option value="half">Half Marathon</option><option value="marathon">Marathon</option></select>
+          <input id="goalTime" class="input" type="number" min="10" max="500" value="50" placeholder="Goal time minutes">
+          <select id="restPreference" class="input"><option value="2-3">2-3 rest days</option><option value="1-2">1-2 rest days</option><option value="0-1">0-1 rest days</option></select>
+        </form>
+        <p class="label">Days you can run</p>
+        <div id="dayButtons" class="day-grid"></div>
+        <textarea id="notes" class="input notes" maxlength="300" placeholder="School, work, injuries, anything important"></textarea>
+        <div class="row"><button class="primary" id="saveProfile">Save profile</button><button class="ghost" data-view="dashboard">Cancel</button></div>
+        <p class="message" id="profileMsg"></p>
+      </div>
+    </section>
+
+    <section id="upload" class="view narrow-wide">
+      <div class="glass panel">
+        <h2>Upload a run</h2>
+        <p class="muted">V2 stores the screenshot securely and asks you to confirm the key numbers. This avoids fake OCR results and keeps plans safer.</p>
+        <label class="drop"><input id="runImage" type="file" accept="image/png,image/jpeg,image/webp"><strong id="fileName">Drop Garmin / Strava screenshot</strong><span>PNG, JPG, WEBP · max 4 MB</span></label>
+        <form id="runForm" class="grid-form">
+          <input id="distance" class="input" type="number" step="0.01" min="0.1" max="100" placeholder="Distance km" required>
+          <input id="duration" class="input" type="number" step="1" min="1" max="900" placeholder="Duration minutes" required>
+          <input id="avgHr" class="input" type="number" min="60" max="230" placeholder="Average HR optional">
+          <select id="effort" class="input"><option value="easy">Easy</option><option value="steady">Steady</option><option value="tempo">Tempo</option><option value="interval">Interval</option><option value="long">Long run</option></select>
+        </form>
+        <div class="row"><button class="primary" id="saveRun">Save run</button><button class="ghost" data-view="dashboard">Cancel</button></div>
+        <p class="message" id="uploadMsg"></p>
+      </div>
+    </section>
+
+    <section id="dashboard" class="view dashboard">
+      <header class="dash-head"><div><p class="muted">Can I Run It V2</p><h2>Dashboard</h2></div><div class="row"><button class="ghost" data-view="onboarding">Profile</button><button class="primary" data-view="upload">Upload run</button><button class="ghost" id="logoutBtn">Logout</button></div></header>
+      <div id="profileWarning" class="warning hidden"><b>Finish your profile</b><span>Training suggestions need your level, goal and available days.</span><button class="primary" data-view="onboarding">Build profile</button></div>
+      <div class="stat-grid"><div class="glass stat"><span>Readiness</span><b id="readiness">0%</b></div><div class="glass stat"><span>Runs uploaded</span><b id="runCount">0</b></div><div class="glass stat"><span>Total km</span><b id="totalKm">0</b></div><div class="glass stat"><span>Streak</span><b id="streak">🔥 0</b></div></div>
+      <div class="dash-grid"><div class="glass panel"><p class="muted">Current plan</p><h3 id="planName">Beginner Safe Start</h3><p id="goalLine" class="muted"></p><div id="unlockBox" class="unlock"></div></div><div class="glass panel"><h3>Coach suggestions</h3><div id="adviceList" class="advice"></div></div></div>
+      <div class="glass panel"><h3>Recent runs</h3><div id="runsList" class="runs-list"></div></div>
     </section>
   </main>
 
-  <script src="/app.js" defer></script>
+  <script src="/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
