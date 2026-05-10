@@ -10,10 +10,16 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
-    "multer": "^2.0.2"
+    "mime-types": "^3.0.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "sharp": "^0.34.3",
+    "uuid": "^11.1.0"
   }
 }
