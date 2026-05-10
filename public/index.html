@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Can I Run It?</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="brand"><span class="dot"></span> Can I Run It?</div>
+    <button id="logoutBtn" class="ghost hidden">Logout</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Race Readiness AI</p>
+        <h1>Find heraus, ob dein Laufziel wirklich realistisch ist.</h1>
+        <p class="lead">Screenshot rein, Zielzeit wählen, ehrliche Analyse bekommen. Mit Streak, Schwächencheck und deinem nächsten Trainingsblock.</p>
+        <div class="heroActions">
+          <a href="#app" class="primary">Analyse starten</a>
+          <span class="trust">Secure MVP · Screenshot-first · No public uploads</span>
+        </div>
+      </div>
+      <div class="scoreCard">
+        <p>Sub 3 Marathon</p>
+        <strong>62%</strong>
+        <span>Machbar, aber noch nicht stabil abgesichert.</span>
+      </div>
+    </section>
+
+    <section id="app" class="grid">
+      <div class="panel" id="authPanel">
+        <h2>Account</h2>
+        <p class="muted">Deine Daten bleiben in deiner lokalen SQLite-Datenbank. Für echte Produktion später sauber mit Cloud-DB.</p>
+        <form id="authForm">
+          <label>Email <input name="email" type="email" required placeholder="du@example.com"></label>
+          <label>Passwort <input name="password" type="password" required minlength="8" placeholder="mind. 8 Zeichen"></label>
+          <div class="row">
+            <button class="primary" data-mode="login" type="submit">Login</button>
+            <button class="secondary" data-mode="register" type="submit">Registrieren</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel hidden" id="analyzePanel">
+        <div class="panelHeader">
+          <h2>Goal Check</h2>
+          <div id="streakBadge" class="badge">🔥 0 Tage</div>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="manual">Manuell</button>
+          <button class="tab" data-tab="screenshot">Screenshot</button>
+        </div>
+
+        <form id="manualForm" class="analyzeForm">
+          <div class="cols">
+            <label>Distanz km <input name="distanceKm" type="number" step="0.01" min="0.1" value="10" required></label>
+            <label>Dauer min <input name="durationMin" type="number" step="0.1" min="1" value="50" required></label>
+          </div>
+          <div class="cols">
+            <label>Pace <input name="pace" placeholder="5:00"></label>
+            <label>Ø HF <input name="avgHr" type="number" placeholder="155"></label>
+          </div>
+          <div class="cols">
+            <label>Datum <input name="date" type="date"></label>
+            <label>Höhenmeter <input name="elevationM" type="number" placeholder="80"></label>
+          </div>
+          <label>Notizen <textarea name="notes" placeholder="z.B. locker, harte Einheit, Wettkampf..."></textarea></label>
+          <div class="goalBox">
+            <label>Ziel <select name="goalDistance"><option value="marathon">Marathon</option><option value="half">Halbmarathon</option><option value="10k">10 km</option></select></label>
+            <label>Zielzeit Minuten <input name="goalTimeMin" type="number" value="180" min="15" required></label>
+          </div>
+          <button class="primary" type="submit">Can I run it?</button>
+        </form>
+
+        <form id="screenshotForm" class="analyzeForm hidden">
+          <label>Screenshot <input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" required></label>
+          <p class="muted small">Ohne OPENAI_API_KEY nutzt die App Demo-Werte. Mit API-Key liest sie den Screenshot serverseitig aus.</p>
+          <div class="goalBox">
+            <label>Ziel <select name="goalDistance"><option value="marathon">Marathon</option><option value="half">Halbmarathon</option><option value="10k">10 km</option></select></label>
+            <label>Zielzeit Minuten <input name="goalTimeMin" type="number" value="180" min="15" required></label>
+          </div>
+          <button class="primary" type="submit">Screenshot analysieren</button>
+        </form>
+      </div>
+
+      <div class="panel resultPanel" id="resultPanel">
+        <h2>Analyse</h2>
+        <div id="resultEmpty" class="empty">Noch keine Analyse. Lade einen Lauf hoch oder gib Daten ein.</div>
+        <div id="result" class="hidden"></div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div><h3>Screenshot-first</h3><p>Kein API-Setup für Nutzer. Einfach Garmin/Strava Screenshot hochladen.</p></div>
+      <div><h3>Goal Probability</h3><p>Nicht nur Plan. Die App sagt ehrlich, wie realistisch dein Ziel ist.</p></div>
+      <div><h3>Streak Loop</h3><p>Jeder hochgeladene Lauf erhöht die Streak und bringt dich zurück.</p></div>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
