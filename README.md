@@ -1,36 +1,64 @@
 # Can I Run It?
 
-A secure MVP web app for runners. Upload a Garmin/Strava/NRC screenshot, enter your race goal and get a race-readiness score, weaknesses, next workouts and a streak.
+Premium Running SaaS MVP mit Supabase Auth, Supabase Database, Storage Upload, Streak-System und Goal-Readiness-Analyse.
 
-## Start
+## Setup lokal
 
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:3000
+Dann öffnen:
 
-## Optional AI screenshot extraction
+```txt
+http://localhost:3000
+```
 
-Add `OPENAI_API_KEY` in `.env`. Without it, the app still works with manual/demo extraction and rule-based analysis.
+## Supabase verbinden
 
-## Security defaults
+In `.env.local` eintragen:
 
-- Helmet security headers and strict CSP
-- HTTP-only SameSite cookies
-- JWT auth with bcrypt password hashing
-- CSRF protection for mutating routes
-- Rate limiting for auth and API routes
-- Server-side upload validation: image MIME, size limit, Sharp re-encoding, no user filename trust
-- SQLite prepared statements
-- No public access to uploaded raw files
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://dein-projekt.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=dein-publishable-oder-anon-key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-## Production notes
+Dann in Supabase:
 
-- Set strong `JWT_SECRET` and `COOKIE_SECRET`
-- Run behind HTTPS
-- Set `NODE_ENV=production`
-- Set `APP_ORIGIN` to your real domain
-- Review OpenAI/Strava API terms before using third-party fitness data commercially
+1. SQL Editor öffnen
+2. Inhalt aus `supabase/schema.sql` ausführen
+3. Authentication > Providers > Email aktiv lassen
+4. Optional: Email Confirmation für Tests deaktivieren
+
+## Render Deploy
+
+Render Web Service:
+
+- Build Command: `npm install && npm run build`
+- Start Command: `npm start`
+- Environment Variables wie in `.env.example`
+
+Der vorherige Fehler kam von `nem install`. Richtig ist `npm install`.
+
+## Vercel Deploy
+
+Für Next.js ist Vercel am einfachsten:
+
+- Repo importieren
+- Environment Variables setzen
+- Deploy
+
+## Sicherheit
+
+- Kein Supabase Service Role Key im Frontend
+- Uploads nur PNG/JPG/WEBP bis 5 MB
+- Private Storage Bucket
+- Row Level Security für Profile, Runs und Storage
+- User können nur eigene Daten lesen/schreiben
+
+## V1 Grenzen
+
+Die Screenshot-Erkennung ist in dieser Version noch nicht echtes OCR. Der Upload wird gespeichert, die Analyse nutzt die manuell eingegebenen Laufdaten. OCR/AI kann später als Server Route ergänzt werden.
