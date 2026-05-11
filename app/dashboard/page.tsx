@@ -26,26 +26,92 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [authError, setAuthError] = useState(false)
   const [form, setForm] = useState({ distanceKm: '10', pace: '5:00', avgHr: '', weeklyKm: '45', longRunKm: '22', goal: 'Sub 3 Marathon' })
 
   useEffect(() => {
     async function init() {
-      if (!hasSupabaseConfig) { setMessage('Supabase ENV Variablen fehlen.'); setLoading(false); return }
-      const { data } = await supabase.auth.getUser()
-      if (!data.user) { router.push('/auth'); return }
-      setUserId(data.user.id)
-      await supabase.from('profiles').upsert({ id: data.user.id, email: data.user.email }, { onConflict: 'id' })
-      const { data: runData } = await supabase.from('runs').select('*').eq('user_id', data.user.id).order('created_at', { ascending: false }).limit(20)
-      setRuns((runData || []) as Run[])
-      setLoading(false)
+      try {
+        if (!hasSupabaseConfig) { 
+          setMessage('❌ Supabase nicht konfiguriert. ENV-Variablen prüfen.')
+          setAuthError(true)
+          setLoading(false)
+          return 
+        }
+
+        const { data, error: authError } = await supabase.auth.getUser()
+        if (authError || !data.user) {
+          console.error('Auth Error:', authError)
+          setAuthError(true)
+          setLoading(false)
+          setTimeout(() => router.push('/auth'), 1000)
+          return
+        }
+
+        setUserId(data.user.id)
+        
+        // Erstelle oder update Profile
+        const { error: profileError } = await supabase.from('profiles').upsert(
+          { id: data.user.id, email: data.user.email }, 
+          { onConflict: 'id' }
+        )
+        if (profileError) console.error('Profile Error:', profileError)
+        
+        // Lade Runs mit Timeout
+        const { data: runData, error: runsError } = await supabase
+          .from('runs')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .order('created_at', { ascending: false })
+          .limit(20)
+
+        if (runsError) {
+          console.error('Runs Error:', runsError)
+          setMessage(`⚠️ Daten konnten nicht geladen werden. Bitte versuche zu aktualisieren.`)
+        } else {
+          setRuns((runData || []) as Run[])
+          setMessage('')
+        }
+      } catch (err) {
+        console.error('Dashboard init error:', err)
+        setMessage('❌ Fehler beim Laden. Bitte versuche zu aktualisieren.')
+      } finally {
+        setLoading(false)
+      }
     }
+
     init()
   }, [router])
 
   const latest = runs[0]
   const streak = useMemo(() => {
-    const dates = [...new Set(runs.map(r => new Date(r.created_at).toISOString().slice(0,10)))]
-    return dates.length
+    if (!runs.length) return 0
+    
+    // Sortiere nach Datum (neueste zuerst)
+    const sortedRuns = [...runs].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    
+    let currentStreak = 0
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    let expectedDate = new Date(today)
+    const runDates = new Set(
+      sortedRuns.map(r => {
+        const d = new Date(r.created_at)
+        d.setHours(0, 0, 0, 0)
+        return d.getTime()
+      })
+    )
+    
+    // Zähle konsekutive Tage rückwärts vom heute
+    while (runDates.has(expectedDate.getTime())) {
+      currentStreak++
+      expectedDate.setDate(expectedDate.getDate() - 1)
+    }
+    
+    return currentStreak
   }, [runs])
 
   async function logout() {
@@ -55,18 +121,45 @@ export default function Dashboard() {
 
   async function saveRun(e: React.FormEvent) {
     e.preventDefault()
-    if (!userId) return
+    if (!userId) return setMessage('Nutzer nicht authentifiziert')
+    
     setSaving(true)
     setMessage('')
+
+    // Validierung
+    const distance = Number(form.distanceKm)
+    const weekly = Number(form.weeklyKm)
+    const longRun = Number(form.longRunKm)
+
+    if (!distance || distance <= 0 || distance > 300) {
+      setMessage('Distanz muss zwischen 0.1 und 300 km liegen')
+      setSaving(false)
+      return
+    }
+
+    if (!form.pace || !form.pace.match(/^\d{1,2}:\d{2}$/)) {
+      setMessage('Pace muss im Format MM:SS sein (z.B. 5:30)')
+      setSaving(false)
+      return
+    }
+
+    if (!form.goal || form.goal.trim().length === 0) {
+      setMessage('Bitte definiere dein Trainingsziel')
+      setSaving(false)
+      return
+    }
+
     const input = {
-      distanceKm: Number(form.distanceKm),
+      distanceKm: distance,
       pace: form.pace,
       avgHr: form.avgHr ? Number(form.avgHr) : undefined,
-      weeklyKm: form.weeklyKm ? Number(form.weeklyKm) : undefined,
-      longRunKm: form.longRunKm ? Number(form.longRunKm) : undefined,
-      goal: form.goal
+      weeklyKm: weekly || undefined,
+      longRunKm: longRun || undefined,
+      goal: form.goal.trim()
     }
+
     const result = analyzeRun(input)
+    
     const { data, error } = await supabase.from('runs').insert({
       user_id: userId,
       distance_km: input.distanceKm,
@@ -77,14 +170,59 @@ export default function Dashboard() {
       goal: input.goal,
       readiness_score: result.score,
       verdict: result.verdict,
-      recommendation: result.next
+      recommendation: result.next,
+      run_date: new Date().toISOString().split('T')[0],
+      source: 'manual'
     }).select('*').single()
+
     setSaving(false)
-    if (error) return setMessage(error.message)
-    setRuns([data as Run, ...runs])
+    
+    if (error) {
+      setMessage(`Fehler beim Speichern: ${error.message}`)
+      return
+    }
+
+    if (data) {
+      setRuns([data as Run, ...runs])
+      setForm({ distanceKm: '10', pace: '5:00', avgHr: '', weeklyKm: '45', longRunKm: '22', goal: 'Sub 3 Marathon' })
+      setMessage('✓ Lauf erfolgreich gespeichert und analysiert!')
+      setTimeout(() => setMessage(''), 3000)
+    }
   }
 
-  if (loading) return <main className="grid min-h-screen place-items-center"><Glow /><p className="text-white/60">Loading dashboard...</p></main>
+  if (loading) {
+    return (
+      <main className="relative grid min-h-screen place-items-center px-5 py-10">
+        <Glow />
+        <div className="glass card max-w-md rounded-3xl p-8 text-center shadow-glow">
+          <div className="mb-4 inline-block rounded-full bg-cyan-300/10 p-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-300/30 border-t-cyan-300"></div>
+          </div>
+          <p className="text-white font-semibold">Dashboard wird geladen...</p>
+          <p className="mt-2 text-xs text-white/50">Authentifizierung und Daten laden...</p>
+        </div>
+      </main>
+    )
+  }
+
+  // Wenn Auth fehlgeschlagen
+  if (authError || !userId) {
+    return (
+      <main className="relative grid min-h-screen place-items-center px-5 py-10">
+        <Glow />
+        <div className="glass card max-w-md rounded-3xl p-8 shadow-glow">
+          <h2 className="text-2xl font-black text-orange-100">Authentifizierung erforderlich</h2>
+          <p className="mt-4 text-white/80">{message || 'Deine Sitzung ist abgelaufen oder es gab einen Fehler.'}</p>
+          <button
+            onClick={() => router.push('/auth')}
+            className="btn btn-primary mt-6 w-full"
+          >
+            Zum Login
+          </button>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="relative min-h-screen px-5 py-6 md:px-10">
