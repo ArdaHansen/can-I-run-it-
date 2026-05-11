@@ -5,51 +5,61 @@ create table if not exists public.profiles (
   email text,
   username text,
   full_name text,
-  level text default 'Beginner',
-  experience text default '0-1 years',
+  level text default 'Intermediate',
+  experience text default '1-3 years',
   goal_distance text default 'Marathon',
   goal_time_hour integer default 3,
   goal_time_min integer default 30,
   target_race text,
+  weekly_goal integer default 4,
   weekly_km numeric default 0,
-  training_days integer default 3,
-  available_days text[] default '{}',
+  training_days integer default 4,
+  available_days text[] default array['Mon','Wed','Fri','Sun'],
+  available_time jsonb default '{}'::jsonb,
   rest_preference text default 'balanced',
   injury_history text,
+  current_fitness text,
   notes text,
   onboarding_complete boolean default false,
   streak integer default 0,
   best_streak integer default 0,
-  last_run_date date,
+  consistency_score integer default 0,
+  readiness_score integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
 create table if not exists public.runs (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  run_date date default current_date,
+  title text default 'Run upload',
+  source text default 'manual',
+  screenshot_url text,
   image_path text,
-  image_url text,
-  source text default 'manual_upload',
   distance_km numeric default 0,
-  duration_min numeric default 0,
+  duration_min integer default 0,
   pace_text text,
   avg_hr integer,
+  max_hr integer,
+  elevation_gain numeric default 0,
   effort integer default 5,
   run_type text default 'Easy',
   notes text,
-  extracted jsonb default '{}'::jsonb,
-  analysis jsonb default '{}'::jsonb,
+  parsed_data jsonb default '{}'::jsonb,
   readiness_score integer default 0,
+  ai_analysis text,
+  training_suggestion text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
 
 create table if not exists public.training_plans (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  week_start date default current_date,
-  plan jsonb not null default '{}'::jsonb,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text default 'Adaptive week',
+  plan jsonb not null default '[]'::jsonb,
+  summary text,
   created_at timestamptz default now()
 );
 
@@ -74,7 +84,3 @@ create policy "runs_insert_own" on public.runs for insert with check (auth.uid()
 create policy "runs_update_own" on public.runs for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "plans_select_own" on public.training_plans for select using (auth.uid() = user_id);
 create policy "plans_insert_own" on public.training_plans for insert with check (auth.uid() = user_id);
-
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('run-screenshots', 'run-screenshots', false, 5242880, array['image/png','image/jpeg','image/webp'])
-on conflict (id) do update set public = false, file_size_limit = 5242880, allowed_mime_types = array['image/png','image/jpeg','image/webp'];

@@ -1,6 +1,8 @@
-# Can I Run It? v2.1 Render Stable
+# Can I Run It? V2.1
 
-Render settings:
+Render-stable version: Express backend + static SPA frontend. No Next.js, no Tailwind build, no TypeScript build.
+
+## Render
 
 Build Command:
 ```bash
@@ -12,20 +14,30 @@ Start Command:
 npm start
 ```
 
-Environment variables:
+## Environment Variables
+
+Required:
 ```env
-NODE_ENV=production
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_DB_URL=... # optional but recommended for auto-migration
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-or-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
-If you do not set `SUPABASE_DB_URL`, run `supabase/schema.sql` once in Supabase SQL Editor.
+Recommended for auto schema setup:
+```env
+SUPABASE_DB_URL=postgresql://...
+```
 
-Security notes:
-- Service role key is only used server-side.
-- Screenshot bucket is private.
-- Upload limit: 5MB, jpg/png/webp only.
-- API validates authenticated Supabase users before reading/writing data.
-- RLS policies are included in schema.sql.
+If you do not set `SUPABASE_DB_URL`, run `supabase/schema.sql` once in the Supabase SQL editor.
+
+## Storage
+
+Create a private Supabase Storage bucket named:
+```txt
+run-screenshots
+```
+
+## Auth Email Branding
+
+Supabase Dashboard -> Authentication -> Email Templates.
+Set product name to Can I Run It and customize the confirmation text.
