@@ -1,12 +1,12 @@
 {
-  "name": "can-i-run-it-v2-render",
-  "version": "2.0.0",
+  "name": "can-i-run-it-v21",
+  "version": "2.1.0",
   "private": true,
-  "engines": {
-    "node": "20.x"
-  },
+  "engines": { "node": "20.x" },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node scripts/check.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -16,10 +16,8 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.1.0",
-    "mime-types": "^3.0.1",
-    "morgan": "^1.10.0",
     "multer": "^2.0.2",
-    "node-fetch": "^3.3.2",
+    "pg": "^8.13.1",
     "sharp": "^0.34.3",
     "uuid": "^11.1.0"
   }
